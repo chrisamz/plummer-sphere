@@ -1,0 +1,74 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import numba
+from scipy import integrate
+from numba import njit
+import time
+
+start_time=time.time()
+
+M = 1e11 #unit is solar masses
+a = 1.5 #units of au 
+
+def sphere():
+    r = a*np.sqrt(np.random.uniform(0,1)**(-2/3)-1)  #radius of the sphere
+    theta = np.random.uniform(0,np.pi) #angle theta from the origin 
+    phi = np.random.uniform(0,2*np.pi) #angle phi in relation ot the z axis
+    x = r*np.sin(theta)*np.cos(phi) #coordinate x
+    y = r*np.sin(theta)*np.sin(phi) #coordinate y
+    z = r*np.cos(theta) #coordinate z
+    return x,y,z
+
+#function that uses monte carlo hit or miss sampling method, uses the available known contour to accept or reject
+def acc_rej(N):
+    count = 0
+    for i in range(N):
+        x,y,z = sphere()
+        if x**2 + y**2 + z**2 < a**2:
+            count += 1 
+    vol = 8*a**3*(count/N)
+    return vol
+    
+N = 100000 #total number of points sampled
+vol = acc_rej(N) #volume of the sphere
+rho = M/vol #mass density
+mass = rho*vol #total mass
+print('Mass of sphere: {:.2e}'.format(mass))
+
+points = np.zeros((N,3))
+for i in range(N):
+    points[i,:] = sphere()
+    
+    
+rad = np.sqrt(points[:,0]**2 + points[:,1]**2 + points[:,2]**2)
+
+bins = np.linspace(0,a,100)
+his, _ = np.histogram(rad, bins=bins)
+
+norm_his = his / N * mass
+
+p = 4*np.pi*bins[1:]**2*rho
+    
+    
+fig, ax = plt.subplots()
+ax.plot(bins[1:], p, label='assumed')
+ax.hist(bins[:-1], bins=bins[1:], weights=norm_his, alpha = 0.5, label = 'sim', density=False)
+ax.set_xlabel('Rad distance from origin in au')
+ax.set_ylabel('Mass density in solar masses / au^3')
+ax.legend()
+plt.show()
+    
+    
+fig = plt.figure(figsize=(3,8))
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(points[:,0],points[:,1],points[:,2],s=1,alpha=0.5)
+ax.set_xlabel('x [kpc]')
+ax.set_ylabel('y [kpc]')
+ax.set_zlabel('z [kpc]')
+ax.set_title('Plummer Sphere')
+plt.show()
+
+end_time = time.time()
+total_time = end_time - start_time
+print('total time: {:.2f} seconds'.format(total_time))
